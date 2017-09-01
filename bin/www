@@ -1,11 +1,22 @@
 #!/usr/bin/env node
 
+global.PLATFORM_PROD = 1;
+global.PLATFORM_DEVEL = 253;
+global.config_dir = './config/';
+
+const fs = require('fs');
+try {
+  global.platform_id = parseInt(platform_id, fs.readFileSync(global.config_dir + 'platform_id'));
+  console.log('Developer version is running');
+} catch (e) {
+  global.platform_id = 1;
+}
+
 /**
  * Module dependencies.
  */
-
 var app = require('../app');
-var debug = require('debug')('sketch-preview-generator:server');
+var debug = require('debug')('localisation-preview-tool:server');
 var http = require('http');
 
 /**

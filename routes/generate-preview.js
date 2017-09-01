@@ -1,116 +1,70 @@
 const
-    express = require('express'),
-    fs = require('fs'),
-    router = express.Router(),
-    child_process = require('child_process'),
-    uuidv1 = require('uuid/v1'),
-    tmp_dir = '',
-    sketch_project_dir = '/Users/at/sketch-preview-generator/sketch_projects/',
-    export_format = 'png';
+    router = require('express').Router(),
+    PreviewGenerator = require('../src/preview-generator'),
+    SketchStore = require('../src/sketch-store');
 
-// function replaceTextInProject(project_dir, search, replace) {
-//     const pages_dir = project_dir + 'pages/';
-//
-//     fs.readdir(pages_dir, function(err, pages) {
-//         if (err) {
-//             throw err;
-//         }
-//
-//         function findArchivedAttributes(Obj) {
-//             if ('MSAttributedStringFontAttribute' in Obj) {
-//                 return Obj.MSAttributedStringFontAttribute._archive;
-//             }
-//
-//             for (let key in Obj) {
-//                 if (Obj[key] instanceof Object) {
-//                     return findArchivedAttributes(Obj[key]);
-//                 }
-//             }
-//
-//             return null;
-//         }
-//
-//         let preview_images = [];
-//
-//         for (let i = 0; i < pages.length; i++) {
-//             let page_file = pages_dir + pages[i],
-//                 Page = JSON.parse(fs.readFileSync(page_file));
-// //сделать поиск заархивированных аттрибутов здесь
-//             preview_images.push({
-//                 variant: pages[i],
-//                 img: `data:image/${export_format};base64,` + new Buffer(bitmap).toString('base64'),
-//             });
-//
-//             fs.unlinkSync(page_file);
-//         }
-//
-//         resolve(preview_images);
-//     });
-// }
-
-router.get('/', function(req, res, next) {
-    const
-        project_name ='11';
-        request_dir = tmp_dir + uuidv1() + '/',
-        output_dir =  request_dir + 'output/';
-
-    child_process.exec(`mkdir -p ${output_dir}`, function (error, stdout, stderr) {
-        if (error) {
-            throw error;
+function generatePreview(req_params, res, next) {
+    try {
+        if (!req_params.screens) {
+            throw 'Screens ids missed';
         }
+        if (!req_params.text_replaces) {
+            throw 'Text replaces missed';
+        }
+        req_params.screens = JSON.parse(req_params.screens);
+        req_params.text_replaces = JSON.parse(req_params.text_replaces);
+    } catch (err) {
+        res.json({error: err});
+        return;
+    }
 
-        const
-            project_file = sketch_project_dir + + project_name + '.sketch',
-            project_dir = sketch_project_dir + +project_name + '/';
+    let screens = req_params.screens,
+        // {
+        //      'f6ac42f8-ce63-4f06-8d2e-d3da941732c4' : [
+        //          'C1C29749-B967-494D-8D7E-A484EAB37534',
+        //          'BF38A95A-F0CD-452E-BE26-E346EBD349CE',
+        //      ]
+        // },
+        text_replaces = req_params.text_replaces,
+        // {
+        //     'DADB2BDE-F509-45DB-9672-3FF16A588269': "БилИб-е-рда",
+        //     'E31C5765-B8C7-4902-ADF8-B3DF6BAA6EE8': "Напиши чтоототвоатвоатоват-воат-ниб-нибудь",
+        //     'E89B04C0-5F81-442F-BFB0-3B4129004672': "Напиши что-нибудь",
+        // };
+        screen_preview_urls = Object.create(null),
+        preview_gen_promises = [],
+        SketchWarehouse = new SketchStore();
 
-        const generate_preview_cmd = `cd "${output_dir}" && sketchtool export artboards --formats=${export_format} --save-for-web "${project_file}"`;
+    for (let sketch in screens) {
+        if (!screens.hasOwnProperty(sketch)) continue;
 
-        child_process.exec(generate_preview_cmd, function (error, stdout, stderr) {
-            if (error || stderr) {
-                console.error('exec error:' + (error || stderr));
-                return;
-            }
+        preview_gen_promises.push(
+            SketchWarehouse
+                .tempReplaceTextsInSketch(sketch, text_replaces, function (sketch_file_path) {
+                    return new PreviewGenerator()
+                        .generatePreview(sketch_file_path, screens[sketch])
+                })
+                .then(function (image_urls) {
+                    Object.assign(screen_preview_urls, image_urls);
+                })
+        );
+    }
 
-            let promise = new Promise(function(resolve, reject) {
-                fs.readdir(output_dir, function(err, items) {
-                    if (err) {
-                        reject(err);
-                        return;
-                    }
+    Promise.all(preview_gen_promises)
+        .then(function () {
+            res.json(screen_preview_urls);
+        })
+        .catch(function (err) {
+            console.error(err);
+            res.json({error: 'Error'});
+        })
+}
 
-                    let preview_images = [];
-
-                    for (let i = 0; i < items.length; i++) {
-                        let file_name = output_dir + items[i],
-                            bitmap = fs.readFileSync(file_name);
-
-                        preview_images.push({
-                           variant: items[i],
-                           img: `data:image/${export_format};base64,` + new Buffer(bitmap).toString('base64'),
-                        });
-
-                        fs.unlinkSync(file_name);
-                    }
-
-                    resolve(preview_images);
-                });
-            });
-
-            let call_always = function () {
-                child_process.exec(`rm -rf ${output_dir}`);
-            };
-
-            promise.then(
-                function(preview_images) {
-                    res.send(preview_images);
-                    call_always();
-                },
-                function (err) {
-                    console.error(err);
-                    call_always();
-                });
-        });
-    });
+router.get('/', function (req, res, next) {
+    generatePreview(req.query, res, next);
+});
+router.post('/', function (req, res, next) {
+    generatePreview(req.body, res, next);
 });
 
 module.exports = router;

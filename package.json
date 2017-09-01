@@ -1,5 +1,5 @@
 {
-  "name": "sketch-preview-generator",
+  "name": "localisation-preview-tool",
   "version": "0.0.0",
   "private": true,
   "scripts": {
@@ -12,7 +12,11 @@
     "express": "~4.15.2",
     "jade": "~1.11.0",
     "morgan": "~1.8.1",
+    "multiparty": "^4.1.3",
     "serve-favicon": "~2.4.2",
-    "uuid": "^3.1.0"
+    "shell-escape": "^0.2.0",
+    "uuid": "^3.1.0",
+    "xml2js": "^0.4.19",
+    "xmldom": "^0.1.27"
   }
 }
