@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 global.PLATFORM_PROD = 1;
-global.PLATFORM_DEVEL = 253;
+global.PLATFORM_DEVEL = 2;
 global.config_dir = './config/';
 
 const fs = require('fs');
