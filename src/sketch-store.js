@@ -3,7 +3,7 @@ const
     uuid = require('uuid'),
     childProcess = require('child_process'),
     xmlDom = require('xmldom'),
-    shellescape = require('shell-escape'),
+    shellEscape = require('shell-escape'),
     fsUtils = require('../src/fs-utils');
 
 class SketchTexts {
@@ -38,12 +38,13 @@ class SketchTexts {
 
 class SketchStore {
     /**
+     * @private
      * @param {string} attributesArchive
      * @return {Promise}
      */
-    _unarchiveAttributes(attributesArchive) {
+    _unArchiveAttributes(attributesArchive) {
         return new Promise(function (resolve, reject) {
-            attributesArchive = shellescape([attributesArchive]);
+            attributesArchive = shellEscape([attributesArchive]);
 
             childProcess.exec(
                 `echo ${attributesArchive} | base64 -D | plutil -convert xml1 -o - -`,
@@ -62,12 +63,13 @@ class SketchStore {
     }
 
     /**
+     * @private
      * @param {Object} Attributes
      * @return {Promise}
      */
     _archiveAttributes(Attributes) {
         return new Promise(function (resolve, reject) {
-            let attributes = shellescape([Attributes]);
+            let attributes = shellEscape([Attributes]);
 
             childProcess.exec(
                 `echo ${attributes} | plutil -convert binary1 -o - - | base64`,
@@ -91,6 +93,7 @@ class SketchStore {
      */
 
     /**
+     * @private
      * @param {Object} obj
      * @param {function} mapCallback
      * @param {[]} [breadcrumbs] - We have only 3 crumbs for every text
@@ -139,6 +142,7 @@ class SketchStore {
      */
 
     /**
+     * @private
      * @param {string} sketchDir
      * @param {sketchPageCallback} mapCallback
      * @return {Promise}
@@ -156,8 +160,8 @@ class SketchStore {
                 let pages = Object.create(null),
                     promisifiedCalls = [];
 
-                for (let i = 0; i < pagesFileNames.length; i++) {
-                    let pageFilePath = pagesDir + pagesFileNames[i];
+                pagesFileNames.forEach(function (pagesFileName) {
+                    let pageFilePath = pagesDir + pagesFileName;
 
                     let Page = JSON.parse(fs.readFileSync(pageFilePath));//TODO: пока вызов синхронный, не хочу портить код промисами еще больше. пока..
 
@@ -168,7 +172,7 @@ class SketchStore {
                     } catch (error) {
                         reject(error);
                     }
-                }
+                });
 
                 if (promisifiedCalls.length === 0) {
                     resolve();
@@ -220,7 +224,7 @@ class SketchStore {
                         return _this._mapArchivedAttributes(
                             Page,
                             function(breadcrumbs, attributesArchive){
-                                return _this._unarchiveAttributes(attributesArchive)
+                                return _this._unArchiveAttributes(attributesArchive)
                                     .then(function (xmlAttributes) {
                                         let Attributes = new xmlDom.DOMParser().parseFromString(xmlAttributes, 'application/xml');
 
