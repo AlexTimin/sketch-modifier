@@ -1,6 +1,15 @@
 #!/usr/bin/env node
 
-global.configDir = './config/';
+const
+  commandLineArgs = require('command-line-args'),
+  /**
+   * @property {String} conf
+   */
+  cliArgv = commandLineArgs([
+      { name: 'conf', type: String},
+  ]);
+
+global.appConfig = require(cliArgv.conf || '../config/app_config');
 
 /**
  * Module dependencies.

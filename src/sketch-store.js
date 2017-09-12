@@ -253,7 +253,7 @@ class SketchStore {
      * @param {tmpSketchFileCallback} callback
      * @return {Promise}
      */
-    tempReplaceTextsInSketch = function (sketchUuid, replaces, callback) {
+    tempReplaceTextsInSketch(sketchUuid, replaces, callback) {
         let _this = this;
 
         return new Promise(function(resolve, reject) {
