@@ -1,16 +1,6 @@
 #!/usr/bin/env node
 
-global.PLATFORM_PROD = 1;
-global.PLATFORM_DEVEL = 2;
 global.configDir = './config/';
-
-const fs = require('fs');
-try {
-  global.platformId = parseInt(platformId, fs.readFileSync(global.configDir + 'platform_id'));
-  console.log('Developer version is running');
-} catch (e) {
-  global.platformId = 1;
-}
 
 /**
  * Module dependencies.
