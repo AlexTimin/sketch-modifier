@@ -1,48 +1,51 @@
 const
     fs = require('fs'),
     uuid = require('uuid/v1'),
-    child_process = require('child_process'),
-    shellescape = require('shell-escape'),
+    childProcess = require('child_process'),
+    shellEscape = require('shell-escape'),
     path = require('path'),
-    fs_utils = require('../src/fs-utils');
+    fsUtils = require('../src/fs-utils');
 
-function PreviewGenerator() {
-
+class PreviewGenerator {
     /**
-     * @param {string[]} preview_files_paths
+     * @private
+     * @param {string[]} previewFilesPaths
      * @return {Promise}
      */
-    function mapPreviews(preview_files_paths) {
-        return new Promise(function(resolve, reject) {
-                let preview_images_urls = Object.create(null);
+    _mapPreviews(previewFilesPaths)
+    {
+        return new Promise(function (resolve, reject) {
+            let previewImagesUrls = Object.create(null);
 
-                for (let i = 0; i < preview_files_paths.length; i++) {
-                    let screen_uuid = path.basename(preview_files_paths[i], `.${global.app_config.export_format}`),
-                        bitmap = fs.readFileSync(preview_files_paths[i]);//TODO: пока вызов синхронный, не хочу портить код промисами еще больше. пока..
+            for (let i = 0; i < previewFilesPaths.length; i++) {
+                let screenUuid = path.basename(previewFilesPaths[i], `.${global.appConfig.exportFormat}`),
+                    bitmap = fs.readFileSync(previewFilesPaths[i]);//TODO: пока вызов синхронный, не хочу портить код промисами еще больше. пока..
 
-                    preview_images_urls[screen_uuid] =
-                        `data:image/${global.app_config.export_format};base64,` + new Buffer(bitmap).toString('base64');
-                }
+                previewImagesUrls[screenUuid] =
+                    `data:image/${global.appConfig.exportFormat};base64,` + new Buffer(bitmap).toString('base64');
+            }
 
-                resolve(preview_images_urls);
-            });
+            resolve(previewImagesUrls);
+        });
     }
 
     /**
-     * @param {string} sketch_file_path
-     * @param {string} output_dir_path
+     * @private
+     * @param {string} sketchFilePath
+     * @param {string} outputDirPath
      * @param {string[]} screens
      * @return {Promise}
      */
-    function exportScreens(sketch_file_path, output_dir_path, screens) {
+    _exportScreens(sketchFilePath, outputDirPath, screens)
+    {
         return new Promise(function (resolve, reject) {
-            sketch_file_path = shellescape([sketch_file_path]);
-            output_dir_path = shellescape([output_dir_path]);
-            screens = shellescape([screens.join(',')]);
+            sketchFilePath = shellEscape([sketchFilePath]);
+            outputDirPath = shellEscape([outputDirPath]);
+            screens = shellEscape([screens.join(',')]);
 
-            const generate_preview_cmd = `cd ${output_dir_path} && sketchtool export artboards --items=${screens} --formats=${global.app_config.export_format} --save-for-web ${sketch_file_path}`;
+            const generatePreviewCmd = `cd ${outputDirPath} && sketchtool export artboards --items=${screens} --formats=${global.appConfig.exportFormat} --save-for-web ${sketchFilePath}`;
 
-            child_process.exec(generate_preview_cmd, function (error, stdout, stderr) {
+            childProcess.exec(generatePreviewCmd, function (error, stdout, stderr) {
                 if (error) {
                     console.error('stderr:' + stderr);
                     console.log('stdout' + stdout);
@@ -50,14 +53,14 @@ function PreviewGenerator() {
                     return;
                 }
 
-                fs.readdir(output_dir_path, function(err, items) {
+                fs.readdir(outputDirPath, function (err, items) {
                     if (err) {
                         reject(err);
                         return;
                     }
 
-                    resolve(items.map(function(file_name){
-                        return output_dir_path + file_name;
+                    resolve(items.map(function (fileName) {
+                        return outputDirPath + fileName;
                     }));
                 });
             });
@@ -65,28 +68,31 @@ function PreviewGenerator() {
     }
 
     /**
-     * @param {string} sketch_file_path
+     * @param {string} sketchFilePath
      * @param {string[]} screens
      * @return {Promise}
      */
-    this.generatePreview = function(sketch_file_path, screens) {
-        return new Promise(function(resolve, reject) {
-            const
-                output_dir = global.app_config.tmp_dir + uuid() + '/';
+    generatePreview(sketchFilePath, screens)
+    {
+        let _this = this;
 
-            fs_utils.createDirRecursive(output_dir)
-                .then(function() {
-                    return exportScreens(sketch_file_path, output_dir, screens);
+        return new Promise(function (resolve, reject) {
+            const
+                outputDir = global.appConfig.tmpDir + uuid() + '/';
+
+            fsUtils.createDirRecursive(outputDir)
+                .then(function () {
+                    return _this._exportScreens(sketchFilePath, outputDir, screens);
                 })
-                .then(mapPreviews)
+                .then(_this._mapPreviews.bind(_this))
                 .then(
-                    function(image_urls) {
-                        resolve(image_urls);
-                        fs_utils.rmDirRecursiveASAP(output_dir)
+                    function (imageUrls) {
+                        resolve(imageUrls);
+                        fsUtils.rmDirRecursiveASAP(outputDir)
                     },
                     function (err) {
                         reject(err);
-                        fs_utils.rmDirRecursiveASAP(output_dir)
+                        fsUtils.rmDirRecursiveASAP(outputDir)
                     }
                 );
         });

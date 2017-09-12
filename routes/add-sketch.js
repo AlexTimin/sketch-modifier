@@ -47,11 +47,11 @@ router.post('/', function(req, res, next) {
         //читаем его тип
         uploadFile.type = part.headers['content-type'];
         //путь для сохранения файла
-        uploadFile.path = global.app_config.tmp_dir + part.filename;
+        uploadFile.path = global.appConfig.tmpDir + part.filename;
 
         //проверяем размер файла, он не должен быть больше максимального размера
-        if(uploadFile.size > global.app_config.max_sketch_size) {
-            errors.push('File size is ' + uploadFile.size + '. Limit is' + (global.app_config.max_sketch_size / 1024 / 1024) + 'MB.');
+        if(uploadFile.size > global.appConfig.maxSketchSize) {
+            errors.push('File size is ' + uploadFile.size + '. Limit is' + (global.appConfig.maxSketchSize / 1024 / 1024) + 'MB.');
         }
 
         //проверяем является ли тип поддерживаемым

@@ -1,52 +1,52 @@
 const
     fs = require('fs'),
     uuid = require('uuid'),
-    child_process = require('child_process'),
-    xmldom = require('xmldom'),
+    childProcess = require('child_process'),
+    xmlDom = require('xmldom'),
     shellescape = require('shell-escape'),
-    fs_utils = require('../src/fs-utils');
+    fsUtils = require('../src/fs-utils');
 
+class SketchTexts {
+    constructor(sketchUuid) {
+        this.sketchUuid = sketchUuid;
+        this._Index = Object.create(null);
+    }
 
-function SketchTexts(sketch_uuid) {
-    this.sketch_uuid = sketch_uuid;
+    add(uuidBreadcrumbs, leaf) {
+        let curIndexNode = this._Index;
 
-    let Index = Object.create(null);
-
-    this.add = function (uuid_breadcrumbs, leaf) {
-        let cur_index_node = Index;
-
-        for (let i = 0; i < uuid_breadcrumbs.length - 1; i++) {
-            if (!cur_index_node[uuid_breadcrumbs[i]]) {
-                cur_index_node[uuid_breadcrumbs[i]] = Object.create(null);
+        for (let i = 0; i < uuidBreadcrumbs.length - 1; i++) {
+            if (!curIndexNode[uuidBreadcrumbs[i]]) {
+                curIndexNode[uuidBreadcrumbs[i]] = Object.create(null);
             }
 
-            cur_index_node = cur_index_node[uuid_breadcrumbs[i]];
+            curIndexNode = curIndexNode[uuidBreadcrumbs[i]];
         }
-        cur_index_node[uuid_breadcrumbs[uuid_breadcrumbs.length - 1]] = leaf;
+        curIndexNode[uuidBreadcrumbs[uuidBreadcrumbs.length - 1]] = leaf;
     };
 
     /**
      * @description This method is called by JSON.stringify
      * @return {Object}
      */
-    this.toJSON = function () {
+    toJSON() {
         let JSONable = {};
-        JSONable[this.sketch_uuid] = Index;
+        JSONable[this.sketchUuid] = this._Index;
         return JSONable;
     };
 }
 
-function SketchStore() {
+class SketchStore {
     /**
-     * @param {string} attributes_archive
+     * @param {string} attributesArchive
      * @return {Promise}
      */
-    function unarchiveAttributes(attributes_archive) {
+    _unarchiveAttributes(attributesArchive) {
         return new Promise(function (resolve, reject) {
-            attributes_archive = shellescape([attributes_archive]);
+            attributesArchive = shellescape([attributesArchive]);
 
-            child_process.exec(
-                `echo ${attributes_archive} | base64 -D | plutil -convert xml1 -o - -`,
+            childProcess.exec(
+                `echo ${attributesArchive} | base64 -D | plutil -convert xml1 -o - -`,
                 function (error, stdout, stderr) {
                     if (error) {
                         console.error(stdout);
@@ -65,11 +65,11 @@ function SketchStore() {
      * @param {Object} Attributes
      * @return {Promise}
      */
-    function archiveAttributes(Attributes) {
+    _archiveAttributes(Attributes) {
         return new Promise(function (resolve, reject) {
             let attributes = shellescape([Attributes]);
 
-            child_process.exec(
+            childProcess.exec(
                 `echo ${attributes} | plutil -convert binary1 -o - - | base64`,
                 function (error, stdout, stderr) {
                     if (error) {
@@ -91,45 +91,45 @@ function SketchStore() {
      */
 
     /**
-     * @param {Object} Obj
-     * @param {function} map_callback
+     * @param {Object} obj
+     * @param {function} mapCallback
      * @param {[]} [breadcrumbs] - We have only 3 crumbs for every text
      * @return {promiseReturnFunction[]}
      */
-    function mapArchivedAttributes(Obj, map_callback, breadcrumbs) {
-        if (Obj._class === 'page') {
-            breadcrumbs = [Obj.do_objectID];
+    _mapArchivedAttributes(obj, mapCallback, breadcrumbs) {
+        if (obj._class === 'page') {
+            breadcrumbs = [obj.do_objectID];
         }
-        if (Obj._class === 'artboard') {
-            Obj.name = Obj.do_objectID;//TODO: we have to refactor this method to expose all of the mappings, not only of archived attributes
+        if (obj._class === 'artboard') {
+            obj.name = obj.do_objectID;//TODO: we have to refactor this method to expose all of the mappings, not only of archived attributes
             breadcrumbs = [breadcrumbs[0]];// We go trough the tree. Imagine and understand!
-            breadcrumbs.push(Obj.do_objectID);
+            breadcrumbs.push(obj.do_objectID);
         }
-        if (Obj._class === 'text') {
+        if (obj._class === 'text') {
             breadcrumbs = breadcrumbs.slice(0, 2);// We go trough the tree. Imagine and understand!
-            breadcrumbs.push(Obj.do_objectID);
+            breadcrumbs.push(obj.do_objectID);
         }
 
-        let promisified_calls = [];
+        let promisifiedCalls = [];
 
-        if ('archivedAttributedString' in Obj) {
-            promisified_calls.push(function () {
-                 return map_callback(breadcrumbs, Obj['archivedAttributedString']._archive)
-                     .then(function (mapped_value) {
-                         Obj['archivedAttributedString']._archive = mapped_value;
+        if ('archivedAttributedString' in obj) {
+            promisifiedCalls.push(function () {
+                 return mapCallback(breadcrumbs, obj['archivedAttributedString']._archive)
+                     .then(function (mappedValue) {
+                         obj['archivedAttributedString']._archive = mappedValue;
                      });
              });
 
-            return promisified_calls;
+            return promisifiedCalls;
         }
 
-        for (let key in Obj) {
-            if (Object.prototype.hasOwnProperty.call(Obj, key) && Obj[key] instanceof Object) {
-                promisified_calls = promisified_calls.concat(mapArchivedAttributes(Obj[key], map_callback, breadcrumbs));
+        for (let propValue of obj) {
+            if (propValue instanceof Object) {
+                promisifiedCalls = promisifiedCalls.concat(this._mapArchivedAttributes(propValue, mapCallback, breadcrumbs));
             }
         }
 
-        return promisified_calls;
+        return promisifiedCalls;
     }
 
     /**
@@ -139,60 +139,60 @@ function SketchStore() {
      */
 
     /**
-     * @param {string} sketch_dir
-     * @param {sketchPageCallback} map_callback
+     * @param {string} sketchDir
+     * @param {sketchPageCallback} mapCallback
      * @return {Promise}
      */
-    function mapSketchPages(sketch_dir, map_callback) {
+    _mapSketchPages(sketchDir, mapCallback) {
         return new Promise(function(resolve, reject) {
-            const pages_dir = sketch_dir + 'pages/';
+            const pagesDir = sketchDir + 'pages/';
 
-            fs.readdir(pages_dir, function (err, pages_file_names) {
+            fs.readdir(pagesDir, function (err, pagesFileNames) {
                 if (err) {
                     reject(err);
                     return;
                 }
 
                 let pages = Object.create(null),
-                    promisified_calls = [];
+                    promisifiedCalls = [];
 
-                for (let i = 0; i < pages_file_names.length; i++) {
-                    let page_file_path = pages_dir + pages_file_names[i];
+                for (let i = 0; i < pagesFileNames.length; i++) {
+                    let pageFilePath = pagesDir + pagesFileNames[i];
 
-                    let Page = JSON.parse(fs.readFileSync(page_file_path));//TODO: пока вызов синхронный, не хочу портить код промисами еще больше. пока..
+                    let Page = JSON.parse(fs.readFileSync(pageFilePath));//TODO: пока вызов синхронный, не хочу портить код промисами еще больше. пока..
 
-                    pages[page_file_path] = Page;
+                    pages[pageFilePath] = Page;
 
                     try {
-                        promisified_calls = promisified_calls.concat(map_callback(Page));
+                        promisifiedCalls = promisifiedCalls.concat(mapCallback(Page));
                     } catch (error) {
                         reject(error);
                     }
                 }
 
-                if (promisified_calls.length === 0) {
+                if (promisifiedCalls.length === 0) {
                     resolve();
                 }
 
-                function execMapping(from_i, to_i) {
+                function execMapping(fromI, toI) {
                     return Promise.all(
-                        promisified_calls
-                            .slice(from_i, to_i)
-                            .map(function(promisified_call) {return promisified_call();})
+                        promisifiedCalls
+                            .slice(fromI, toI)
+                            .map(function(promisifiedCall) {return promisifiedCall();})
                     ).then(function() {
-                        from_i += global.app_config.max_parallel_mapping_threads;
-                        if (from_i < promisified_calls.length) {
-                            to_i += global.app_config.max_parallel_mapping_threads;
-                            return execMapping(from_i, to_i);
+                        fromI += global.appConfig.maxParallelMappingThreads;
+                        if (fromI < promisifiedCalls.length) {
+                            toI += global.appConfig.maxParallelMappingThreads;
+                            return execMapping(fromI, toI);
                         }
                     }, reject);
                 }
 
-                execMapping(0, global.app_config.max_parallel_mapping_threads)
+                execMapping(0, global.appConfig.maxParallelMappingThreads)
                     .then(function () {
                         let promises = [];
-                        for (let page_file_path in pages) {
-                            promises.push(fs_utils.writeFile(page_file_path, JSON.stringify(pages[page_file_path])));
+                        for (let pageFilePath in pages) {
+                            promises.push(fsUtils.writeFile(pageFilePath, JSON.stringify(pages[pageFilePath])));
                         }
                         return Promise.all(promises);
                     })
@@ -202,28 +202,30 @@ function SketchStore() {
     }
 
     /**
-     * @param {string} sketch_file_path
+     * @param {string} sketchFilePath
      * @return {Promise}
      */
-    this.addSketchFile = function (sketch_file_path) {
+    addSketchFile(sketchFilePath) {
+        let _this = this;
+
         return new Promise(function (resolve, reject) {
             const
-                file_name = uuid(),
-                unzipped_project_path = global.app_config.sketch_project_dir + file_name + '/',
-                Texts = new SketchTexts(file_name);
+                fileName = uuid(),
+                unzippedProjectPath = global.appConfig.sketchProjectDir + fileName + '/',
+                Texts = new SketchTexts(fileName);
 
-            fs_utils.unzip(sketch_file_path, unzipped_project_path)
+            fsUtils.unzip(sketchFilePath, unzippedProjectPath)
                 .then(function() {
-                    return mapSketchPages(unzipped_project_path, function(Page) {
-                        return mapArchivedAttributes(
+                    return _this._mapSketchPages(unzippedProjectPath, function(Page) {
+                        return _this._mapArchivedAttributes(
                             Page,
-                            function(breadcrumbs, attributes_archive){
-                                return unarchiveAttributes(attributes_archive)
-                                    .then(function (xml_attributes) {
-                                        let Attributes = new xmldom.DOMParser().parseFromString(xml_attributes);
+                            function(breadcrumbs, attributesArchive){
+                                return _this._unarchiveAttributes(attributesArchive)
+                                    .then(function (xmlAttributes) {
+                                        let Attributes = new xmlDom.DOMParser().parseFromString(xmlAttributes, 'application/xml');
 
                                         Texts.add(breadcrumbs, Attributes.childNodes[4].childNodes[1].childNodes[7].childNodes[5].firstChild.nodeValue);
-                                        return xml_attributes;
+                                        return xmlAttributes;
                                     });
                             }
                         );
@@ -242,54 +244,56 @@ function SketchStore() {
      */
 
     /**
-     * @param {string} sketch_uuid
+     * @param {string} sketchUuid
      * @param {Object} replaces - hash
      * @param {tmpSketchFileCallback} callback
      * @return {Promise}
      */
-    this.tempReplaceTextsInSketch = function (sketch_uuid, replaces, callback) {
+    tempReplaceTextsInSketch = function (sketchUuid, replaces, callback) {
+        let _this = this;
+
         return new Promise(function(resolve, reject) {
             const
-                src_sketch_dir = global.app_config.sketch_project_dir + sketch_uuid + '/',
-                translated_sketch = global.app_config.tmp_dir + uuid(),
-                translated_sketch_dir = translated_sketch + '/',
-                translated_sketch_file = translated_sketch + '.sketch';
+                srcSketchDir = global.appConfig.sketchProjectDir + sketchUuid + '/',
+                translatedSketch = global.appConfig.tmpDir + uuid(),
+                translatedSketchDir = translatedSketch + '/',
+                translatedSketchFile = translatedSketch + '.sketch';
 
-            fs_utils.copyDirRecursive(src_sketch_dir, translated_sketch_dir)
+            fsUtils.copyDirRecursive(srcSketchDir, translatedSketchDir)
                 .then(function () {
-                    return mapSketchPages(translated_sketch_dir, function(Page) {
-                        return mapArchivedAttributes(
+                    return _this._mapSketchPages(translatedSketchDir, function(Page) {
+                        return _this._mapArchivedAttributes(
                             Page,
-                            function(breadcrumbs, xml_attributes) {
-                                let text_uuid = breadcrumbs[breadcrumbs.length - 1];
+                            function(breadcrumbs, xmlAttributes) {
+                                let textUuid = breadcrumbs[breadcrumbs.length - 1];
 
-                                if (replaces[text_uuid]) {
-                                    let xmldoc = (new xmldom.DOMParser()).parseFromString(xml_attributes);
-                                    xmldoc.childNodes[4].childNodes[1].childNodes[7].childNodes[5].firstChild.data = replaces[text_uuid];
-                                    xml_attributes = new xmldom.XMLSerializer().serializeToString(xmldoc);
+                                if (replaces[textUuid]) {
+                                    let xmlDoc = (new xmlDom.DOMParser()).parseFromString(xmlAttributes);
+                                    xmlDoc.childNodes[4].childNodes[1].childNodes[7].childNodes[5].firstChild.data = replaces[textUuid];
+                                    xmlAttributes = new xmlDom.XMLSerializer().serializeToString(xmlDoc);
                                 }
 
-                                return archiveAttributes(xml_attributes);
+                                return _this._archiveAttributes(xmlAttributes);
                             }
                         );
                     });
                 })
                 .then(function () {
-                    return fs_utils.zip(translated_sketch_dir, translated_sketch_file);
+                    return fsUtils.zip(translatedSketchDir, translatedSketchFile);
                 })
                 .then(function() {
-                    return callback(translated_sketch_file);
+                    return callback(translatedSketchFile);
                 })
                 .then(function() {
                     resolve.apply(this, arguments);
 
-                    fs.unlink(translated_sketch_file, function (err) {
+                    fs.unlink(translatedSketchFile, function (err) {
                         if (err) {
                             console.error(err);
                         }
                     });
 
-                    fs_utils.rmDirRecursiveASAP(translated_sketch_dir);
+                    fsUtils.rmDirRecursiveASAP(translatedSketchDir);
                 }, reject);
         });
     };

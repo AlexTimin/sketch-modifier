@@ -3,56 +3,56 @@ const
     PreviewGenerator = require('../src/preview-generator'),
     SketchStore = require('../src/sketch-store');
 
-function generatePreview(req_params, res, next) {
+function generatePreview(reqParams, res, next) {
     try {
-        if (!req_params.screens) {
+        if (!reqParams.screens) {
             throw 'Screens ids missed';
         }
-        if (!req_params.text_replaces) {
+        if (!reqParams.textReplaces) {
             throw 'Text replaces missed';
         }
-        req_params.screens = JSON.parse(req_params.screens);
-        req_params.text_replaces = JSON.parse(req_params.text_replaces);
+        reqParams.screens = JSON.parse(reqParams.screens);
+        reqParams.textReplaces = JSON.parse(reqParams.textReplaces);
     } catch (err) {
         res.json({error: err});
         return;
     }
 
-    let screens = req_params.screens,
+    let screens = reqParams.screens,
         // {
         //      'f6ac42f8-ce63-4f06-8d2e-d3da941732c4' : [
         //          'C1C29749-B967-494D-8D7E-A484EAB37534',
         //          'BF38A95A-F0CD-452E-BE26-E346EBD349CE',
         //      ]
         // },
-        text_replaces = req_params.text_replaces,
+        textReplaces = reqParams.textReplaces,
         // {
         //     'DADB2BDE-F509-45DB-9672-3FF16A588269': "БилИб-е-рда",
         //     'E31C5765-B8C7-4902-ADF8-B3DF6BAA6EE8': "Напиши чтоототвоатвоатоват-воат-ниб-нибудь",
         //     'E89B04C0-5F81-442F-BFB0-3B4129004672': "Напиши что-нибудь",
         // };
-        screen_preview_urls = Object.create(null),
-        preview_gen_promises = [],
+        screenPreviewUrls = Object.create(null),
+        previewGenPromises = [],
         SketchWarehouse = new SketchStore();
 
     for (let sketch in screens) {
         if (!screens.hasOwnProperty(sketch)) continue;
 
-        preview_gen_promises.push(
+        previewGenPromises.push(
             SketchWarehouse
-                .tempReplaceTextsInSketch(sketch, text_replaces, function (sketch_file_path) {
+                .tempReplaceTextsInSketch(sketch, textReplaces, function (sketchFilePath) {
                     return new PreviewGenerator()
-                        .generatePreview(sketch_file_path, screens[sketch])
+                        .generatePreview(sketchFilePath, screens[sketch])
                 })
-                .then(function (image_urls) {
-                    Object.assign(screen_preview_urls, image_urls);
+                .then(function (imageUrls) {
+                    Object.assign(screenPreviewUrls, imageUrls);
                 })
         );
     }
 
-    Promise.all(preview_gen_promises)
+    Promise.all(previewGenPromises)
         .then(function () {
-            res.json(screen_preview_urls);
+            res.json(screenPreviewUrls);
         })
         .catch(function (err) {
             console.error(err);

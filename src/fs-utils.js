@@ -1,20 +1,20 @@
 const
-    child_process = require('child_process'),
+    childProcess = require('child_process'),
     fs = require('fs'),
-    shellescape = require('shell-escape');
+    shellEscape = require('shell-escape');
 
 module.exports = {
     /**
-     * @param {string} dir_path
+     * @param {string} dirPath
      */
-    rmDirRecursiveASAP: function (dir_path) {
-        if (dir_path === '/') {
+    rmDirRecursiveASAP: function (dirPath) {
+        if (dirPath === '/') {
             throw new Error('Hey man, did you really hope to remove / ?');
         }
 
-        child_process.exec(`rm -rf ${dir_path}`, function (error, stdout, stderr) {
+        childProcess.exec(`rm -rf ${dirPath}`, function (error, stdout, stderr) {
             if (error) {
-                console.error('Can\'t rm dir ' + dir_path);
+                console.error('Can\'t rm dir ' + dirPath);
                 console.error(error);
                 console.error('stderr:' + stderr);
                 console.log('stdout' + stdout);
@@ -23,12 +23,12 @@ module.exports = {
     },
 
     /**
-     * @param {string} dir_path
+     * @param {string} dirPath
      * @return {Promise}
      */
-    createDirRecursive: function (dir_path) {
+    createDirRecursive: function (dirPath) {
         return new Promise(function (resolve, reject) {
-            child_process.exec(`mkdir -p ${dir_path}`, function (error, stdout, stderr) {
+            childProcess.exec(`mkdir -p ${dirPath}`, function (error, stdout, stderr) {
                 if (error) {
                     console.error('stderr:' + stderr);
                     console.log('stdout' + stdout);
@@ -47,10 +47,10 @@ module.exports = {
      */
     copyDirRecursive: function (src, dst) {
         return new Promise(function(resolve, reject){
-            src = shellescape([src]);
-            dst = shellescape([dst]);
+            src = shellEscape([src]);
+            dst = shellEscape([dst]);
 
-            child_process.exec(`cp -r ${src} ${dst}`, function (error, stdout, stderr) {
+            childProcess.exec(`cp -r ${src} ${dst}`, function (error, stdout, stderr) {
                 if (error) {
                     console.error(stdout);
                     reject(error);
@@ -63,13 +63,13 @@ module.exports = {
     },
 
     /**
-     * @param {string} file_path
+     * @param {string} filePath
      * @param {string} data
      * @return {Promise}
      */
-    writeFile: function (file_path, data) {
+    writeFile: function (filePath, data) {
         return new Promise(function (resolve, reject) {
-            fs.writeFile(file_path, data, function (err) {
+            fs.writeFile(filePath, data, function (err) {
                 if (err) {
                     reject(err);
                     return;
@@ -80,17 +80,17 @@ module.exports = {
     },
 
     /**
-     * @param {string} project_file_path
-     * @param {string} unzipped_project_path
+     * @param {string} projectFilePath
+     * @param {string} unzippedProjectPath
      * @return {Promise}
      */
-    unzip: function  (project_file_path, unzipped_project_path) {
+    unzip: function  (projectFilePath, unzippedProjectPath) {
         return new Promise(function (resolve, reject) {
-            project_file_path = shellescape([project_file_path]);
-            unzipped_project_path = shellescape([unzipped_project_path]);
+            projectFilePath = shellEscape([projectFilePath]);
+            unzippedProjectPath = shellEscape([unzippedProjectPath]);
 
-            child_process.exec(
-                `unzip -oq ${project_file_path} -d ${unzipped_project_path}`,
+            childProcess.exec(
+                `unzip -oq ${projectFilePath} -d ${unzippedProjectPath}`,
                 function (error, stdout, stderr) {
                     if (error) {
                         console.error(stderr);
@@ -105,17 +105,17 @@ module.exports = {
     },
 
     /**
-     * @param {string} unzipped_dir
-     * @param {string} archive_path
+     * @param {string} unzippedDir
+     * @param {string} archivePath
      * @return {Promise}
      */
-    zip: function (unzipped_dir, archive_path) {
+    zip: function (unzippedDir, archivePath) {
         return new Promise(function (resolve, reject) {
-            unzipped_dir = shellescape([unzipped_dir]);
-            archive_path = shellescape([archive_path]);
+            unzippedDir = shellEscape([unzippedDir]);
+            archivePath = shellEscape([archivePath]);
 
-            child_process.exec(
-                `cd ${unzipped_dir} && zip -Xrq ${archive_path} .`,
+            childProcess.exec(
+                `cd ${unzippedDir} && zip -Xrq ${archivePath} .`,
                 function (error, stdout, stderr) {
                     if (error) {
                         console.error(stderr);
