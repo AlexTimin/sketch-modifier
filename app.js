@@ -7,6 +7,7 @@ let bodyParser = require('body-parser');
 let os = require('os');
 let generatePreview = require('./routes/generate-preview');
 let addSketch = require('./routes/add-sketch');
+let index = require('./routes/index');
 let app = express();
 
 // view engine setup
@@ -21,6 +22,7 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
+app.use('/', index);
 app.use('/generate-preview', generatePreview);
 app.use('/add-sketch', addSketch);
 
