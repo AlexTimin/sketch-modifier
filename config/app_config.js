@@ -5,7 +5,7 @@ let
         tmpDir: cwd + '/tmp/',
         maxSketchSize: 104857600, //100MB
         exportFormat: 'png',
-        maxParallelMappingThreads: 4,//  To prevent overload of main thread. Should be greater than 0.
+        maxParallelMappingThreads: 4,//  Should be greater than 0
     };
 
 module.exports = config;

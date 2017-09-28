@@ -126,9 +126,9 @@ class SketchStore {
             return promisifiedCalls;
         }
 
-        for (let propValue of obj) {
-            if (propValue instanceof Object) {
-                promisifiedCalls = promisifiedCalls.concat(this._mapArchivedAttributes(propValue, mapCallback, breadcrumbs));
+        for (let field in obj) {
+            if (obj[field] instanceof Object) {
+                promisifiedCalls = promisifiedCalls.concat(this._mapArchivedAttributes(obj[field], mapCallback, breadcrumbs));
             }
         }
 
