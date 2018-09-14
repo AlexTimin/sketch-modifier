@@ -47,13 +47,13 @@ router.post('/', function(req, res, next) {
                                 if(fs.existsSync(uploadFile.path)) {
                                     fs.unlinkSync(uploadFile.path);
                                 }
-                            res.json(Texts);
-                        }
-                    )
-                    .catch(function(err) {
-                        console.error(err);
-                        res.json({error: 'Error'});
-                    });
+                                res.json(Texts);
+                            }
+                        )
+                        .catch(function(err) {
+                            console.error(err);
+                            res.json({error: 'Error'});
+                        });
                 });
         } else {
             req.abort();

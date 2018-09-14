@@ -95,11 +95,31 @@ class SketchStore {
     /**
      * @private
      * @param {Object} obj
-     * @param {function} mapCallback
-     * @param {[]} [breadcrumbs] - We have only 3 crumbs for every text
-     * @return {promiseReturnFunction[]}
+     * @return {archivedAttributedString[]}
      */
-    _mapArchivedAttributes(obj, mapCallback, breadcrumbs) {
+    _findArchivedAttributes(obj) {
+        let archives = [];
+
+        if (obj.archivedAttributedString) {
+            archives.push(obj.archivedAttributedString);
+        } else {
+            for (let field in obj) {
+                if (obj[field] instanceof Object) {
+                    archives = archives.concat(this._findArchivedAttributes(obj[field]));
+                }
+            }
+        }
+
+        return archives;
+    }
+
+    /**
+     * @private
+     * @param {Object} obj
+     * @param {function} callback
+     * @param {[]} [breadcrumbs] - We have only 3 crumbs for every text
+     */
+    _mapTexts (obj, callback, breadcrumbs) {
         if (obj._class === 'page') {
             breadcrumbs = [obj.do_objectID];
         }
@@ -113,26 +133,24 @@ class SketchStore {
             breadcrumbs.push(obj.do_objectID);
         }
 
-        let promisifiedCalls = [];
+        if (obj.archivedAttributedString) {
+            let Attributes = new xmlDom.DOMParser().parseFromString(archivedAttributedString._archive, 'application/xml');
+            Attributes.childNodes[4].childNodes[1].childNodes[7].childNodes[5].firstChild.data = new xmlDom.XMLSerializer().serializeToString(
+                callback(breadcrumbs, Attributes.childNodes[4].childNodes[1].childNodes[7].childNodes[5].firstChild.nodeValue)
+            );
+            return;
+        }
 
-        if ('archivedAttributedString' in obj) {
-            promisifiedCalls.push(function () {
-                 return mapCallback(breadcrumbs, obj['archivedAttributedString']._archive)
-                     .then(function (mappedValue) {
-                         obj['archivedAttributedString']._archive = mappedValue;
-                     });
-             });
-
-            return promisifiedCalls;
+        if (obj.attributedString) {
+            obj.attributedString.string = callback(breadcrumbs, obj.attributedString.string);
+            return;
         }
 
         for (let field in obj) {
             if (obj[field] instanceof Object) {
-                promisifiedCalls = promisifiedCalls.concat(this._mapArchivedAttributes(obj[field], mapCallback, breadcrumbs));
+                this._mapTexts(obj[field], callback, breadcrumbs);
             }
         }
-
-        return promisifiedCalls;
     }
 
     /**
@@ -144,7 +162,7 @@ class SketchStore {
     /**
      * @private
      * @param {string} sketchDir
-     * @param {sketchPageCallback} mapCallback
+     * @param {function(*=): Array} mapCallback
      * @return {Promise}
      */
     _mapSketchPages(sketchDir, mapCallback) {
@@ -220,20 +238,40 @@ class SketchStore {
 
             fsUtils.unzip(sketchFilePath, unzippedProjectPath)
                 .then(function() {
-                    return _this._mapSketchPages(unzippedProjectPath, function(Page) {
-                        return _this._mapArchivedAttributes(
-                            Page,
-                            function(breadcrumbs, attributesArchive){
-                                return _this._unArchiveAttributes(attributesArchive)
-                                    .then(function (xmlAttributes) {
-                                        let Attributes = new xmlDom.DOMParser().parseFromString(xmlAttributes, 'application/xml');
+                    let pages = [];
 
-                                        Texts.add(breadcrumbs, Attributes.childNodes[4].childNodes[1].childNodes[7].childNodes[5].firstChild.nodeValue);
-                                        return xmlAttributes;
-                                    });
-                            }
-                        );
-                    });
+                    return _this._mapSketchPages(unzippedProjectPath, function(Page) {
+                        pages.push(Page);
+
+                        let promisifiedCalls = [];
+
+                        let archives = _this._findArchivedAttributes(Page);
+                        if (archives.length) {
+                            archives.forEach(archivedAttributedString => {
+                                promisifiedCalls.push(
+                                    function() {
+                                        return _this._unArchiveAttributes(archivedAttributedString._archive)
+                                            .then(function (xmlAttributes) {
+                                                archivedAttributedString._archive = xmlAttributes;
+                                            })
+                                    }
+                                );
+                            });
+                        }
+
+                        return promisifiedCalls;
+                    })
+                        .then(function () {
+                            pages.forEach(function (Page) {
+                                _this._mapTexts(
+                                    Page,
+                                    function (breadcrumbs, text) {
+                                        Texts.add(breadcrumbs, text);
+                                        return text;
+                                    }
+                                );
+                            });
+                        });
                 })
                 .then(function() {
                     resolve(Texts);
@@ -266,20 +304,34 @@ class SketchStore {
             fsUtils.copyDirRecursive(srcSketchDir, translatedSketchDir)
                 .then(function () {
                     return _this._mapSketchPages(translatedSketchDir, function(Page) {
-                        return _this._mapArchivedAttributes(
+                        _this._mapTexts(
                             Page,
-                            function(breadcrumbs, xmlAttributes) {
+                            function (breadcrumbs, text) {
                                 let textUuid = breadcrumbs[breadcrumbs.length - 1];
 
                                 if (replaces[textUuid]) {
-                                    let xmlDoc = (new xmlDom.DOMParser()).parseFromString(xmlAttributes);
-                                    xmlDoc.childNodes[4].childNodes[1].childNodes[7].childNodes[5].firstChild.data = replaces[textUuid];
-                                    xmlAttributes = new xmlDom.XMLSerializer().serializeToString(xmlDoc);
+                                    return replaces[textUuid];
                                 }
 
-                                return _this._archiveAttributes(xmlAttributes);
+                                return text;
                             }
                         );
+                        let promisifiedCalls = [];
+                        let archives = _this._findArchivedAttributes(Page);
+                        if (archives.length) {
+                            archives.forEach(archivedAttributedString => {
+                                promisifiedCalls.push(
+                                    function() {
+                                        return _this._archiveAttributes(archivedAttributedString._archive)
+                                            .then(function (xmlAttributes) {
+                                                archivedAttributedString._archive = xmlAttributes;
+                                            })
+                                    }
+                                );
+                            });
+                        }
+
+                        return promisifiedCalls;
                     });
                 })
                 .then(function () {
