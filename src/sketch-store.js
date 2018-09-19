@@ -114,12 +114,11 @@ class SketchStore {
     }
 
     /**
-     * @private
      * @param {Object} obj
      * @param {function} callback
      * @param {[]} [breadcrumbs] - We have only 3 crumbs for every text
      */
-    _mapTexts (obj, callback, breadcrumbs) {
+    mapTexts (obj, callback, breadcrumbs) {
         if (obj._class === 'page') {
             breadcrumbs = [obj.do_objectID];
         }
@@ -133,22 +132,26 @@ class SketchStore {
             breadcrumbs.push(obj.do_objectID);
         }
 
-        if (obj.archivedAttributedString) {
-            let Attributes = new xmlDom.DOMParser().parseFromString(archivedAttributedString._archive, 'application/xml');
-            Attributes.childNodes[4].childNodes[1].childNodes[7].childNodes[5].firstChild.data = new xmlDom.XMLSerializer().serializeToString(
-                callback(breadcrumbs, Attributes.childNodes[4].childNodes[1].childNodes[7].childNodes[5].firstChild.nodeValue)
-            );
-            return;
-        }
-
         if (obj.attributedString) {
-            obj.attributedString.string = callback(breadcrumbs, obj.attributedString.string);
+            if (obj.attributedString.archivedAttributedString) {
+                let Attributes = new xmlDom.DOMParser().parseFromString(
+                    obj.attributedString.archivedAttributedString._archive,
+                    'application/xml'
+                );
+                Attributes.childNodes[4].childNodes[1].childNodes[7].childNodes[5].firstChild.data = callback(
+                    breadcrumbs,
+                    Attributes.childNodes[4].childNodes[1].childNodes[7].childNodes[5].firstChild.nodeValue
+                );
+                obj.attributedString.archivedAttributedString._archive = new xmlDom.XMLSerializer().serializeToString(Attributes);
+            } else {
+                obj.attributedString.string = callback(breadcrumbs, obj.attributedString.string);
+            }
             return;
         }
 
         for (let field in obj) {
             if (obj[field] instanceof Object) {
-                this._mapTexts(obj[field], callback, breadcrumbs);
+                this.mapTexts(obj[field], callback, breadcrumbs);
             }
         }
     }
@@ -160,12 +163,11 @@ class SketchStore {
      */
 
     /**
-     * @private
      * @param {string} sketchDir
      * @param {function(*=): Array} mapCallback
      * @return {Promise}
      */
-    _mapSketchPages(sketchDir, mapCallback) {
+    mapSketchPages(sketchDir, mapCallback) {
         return new Promise(function(resolve, reject) {
             const pagesDir = sketchDir + 'pages/';
 
@@ -224,23 +226,47 @@ class SketchStore {
     }
 
     /**
-     * @param {string} sketchFilePath
+     * @param {string} fileName
+     * @return {string}
+     */
+    getPath (fileName) {
+        return global.appConfig.sketchProjectDir + fileName + '/';
+    }
+
+    /**
+     * @param {string} fileName
      * @return {Promise}
      */
-    addSketchFile(sketchFilePath) {
+    has(fileName) {
+        return new Promise((resolve, reject) => {
+            fs.stat(this.getPath(fileName), (err, stat) => {
+                if (err == null) {
+                    resolve();
+                } else {
+                    reject();
+                }
+            });
+        });
+    }
+
+    /**
+     * @param {string} sketchFilePath
+     * @param {string} fileName
+     * @return {Promise}
+     */
+    addSketchFile(sketchFilePath, fileName) {
         let _this = this;
 
         return new Promise(function (resolve, reject) {
             const
-                fileName = uuid(),
-                unzippedProjectPath = global.appConfig.sketchProjectDir + fileName + '/',
+                unzippedProjectPath = _this.getPath(fileName),
                 Texts = new SketchTexts(fileName);
 
             fsUtils.unzip(sketchFilePath, unzippedProjectPath)
                 .then(function() {
                     let pages = [];
 
-                    return _this._mapSketchPages(unzippedProjectPath, function(Page) {
+                    return _this.mapSketchPages(unzippedProjectPath, function(Page) {
                         pages.push(Page);
 
                         let promisifiedCalls = [];
@@ -263,7 +289,7 @@ class SketchStore {
                     })
                         .then(function () {
                             pages.forEach(function (Page) {
-                                _this._mapTexts(
+                                _this.mapTexts(
                                     Page,
                                     function (breadcrumbs, text) {
                                         Texts.add(breadcrumbs, text);
@@ -303,8 +329,8 @@ class SketchStore {
 
             fsUtils.copyDirRecursive(srcSketchDir, translatedSketchDir)
                 .then(function () {
-                    return _this._mapSketchPages(translatedSketchDir, function(Page) {
-                        _this._mapTexts(
+                    return _this.mapSketchPages(translatedSketchDir, function(Page) {
+                        _this.mapTexts(
                             Page,
                             function (breadcrumbs, text) {
                                 let textUuid = breadcrumbs[breadcrumbs.length - 1];
@@ -355,4 +381,5 @@ class SketchStore {
     };
 }
 
-module.exports = SketchStore;
+module.exports.SketchStore = SketchStore;
+module.exports.SketchTexts = SketchTexts;

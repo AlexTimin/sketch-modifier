@@ -1,6 +1,6 @@
 const
     router = require('express').Router(),
-    SketchStore = require('../src/sketch-store'),
+    SketchStore = require('../src/sketch-store').SketchStore,
     multiparty = require('multiparty'),
     fs = require('fs');
 

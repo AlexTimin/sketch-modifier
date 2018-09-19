@@ -1,7 +1,7 @@
 const
     router = require('express').Router(),
     PreviewGenerator = require('../src/preview-generator'),
-    SketchStore = require('../src/sketch-store');
+    SketchStore = require('../src/sketch-store').SketchStore;
 
 function generatePreview(reqParams, res, next) {
     try {
