@@ -9,6 +9,8 @@ let findTexts = require('./routes/find-texts');
 let index = require('./routes/index');
 let app = express();
 
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = 0;//skip TLS cert verification
+
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'jade');

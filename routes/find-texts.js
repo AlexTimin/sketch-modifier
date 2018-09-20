@@ -1,72 +1,53 @@
 const
     router = require('express').Router(),
     SketchStore = require('../src/sketch-store').SketchStore,
-    SketchTexts = require('../src/sketch-store').SketchTexts,
-    fs = require('fs'),
-    url = require('url');
+    SketchTexts = require('../src/sketch-store').SketchTexts;
 
-router.post('/', function(req, res, next) {
-    let sketch_url = req.body.sketch_url;
-
-
-    process.env.NODE_TLS_REJECT_UNAUTHORIZED = 0;//skip TLS cert verification
-
-    let fileName = sketch_url.replace(/\//g, '_');
+/**
+ * @param {string} sketch_url
+ * @return {Promise<SketchTexts>}
+ */
+function findTexts (sketch_url) {
     let SStore = new SketchStore;
 
-    SStore.has(fileName)
-        .then(
-            () => {
-                let Texts = new SketchTexts(fileName);
+    return SStore.load(sketch_url)
+        .then(fileName => {
+            let Texts = new SketchTexts(fileName);
 
-                SStore.mapSketchPages(SStore.getPath(fileName), Page => {
-                    SStore.mapTexts(
-                        Page,
-                        function (breadcrumbs, text) {
-                            Texts.add(breadcrumbs, text);
-                            return text;
-                        }
-                    );
-                    return [];
-                })
-                    .then(() => {
-                        res.json(Texts);
-                    });
-            },
-            () => {
-                let adapters = {
-                    'http:' : require('http'),
-                    'https:': require('https'),
-                };
+            return SStore.mapSketchPages(SStore.getPath(fileName), Page => {
+                SStore.mapTexts(
+                    Page,
+                    function (breadcrumbs, text) {
+                        Texts.add(breadcrumbs, text);
+                        return text;
+                    }
+                );
+                return [];
+            })
+                .then(() => Promise.resolve(Texts));
+        });
+}
 
-                adapters[url.parse(sketch_url).protocol].get(sketch_url, function (response) {
-                    let uploadPath = global.appConfig.tmpDir + fileName;
-                    let file = fs.createWriteStream(uploadPath);
+router.get('/', function(req, res, next) {
+    findTexts(req.query.sketch_url)
+        .then(Texts => {
+            res.json(Texts);
+        })
+        .catch(function (err) {
+            console.error(err);
+            res.json({error: 'Error'});
+        });
+});
 
-                    response.pipe(file)
-                        .on('finish', function () {
-                            SStore
-                                .addSketchFile(uploadPath, fileName)
-                                .then(
-                                    /** @param {SketchTexts} Texts */
-                                    function(Texts) {
-                                        if(fs.existsSync(uploadPath)) {
-                                            fs.unlinkSync(uploadPath);
-                                        }
-                                        res.json(Texts);
-                                    }
-                                )
-                                .catch(function(err) {
-                                    console.error(err);
-                                    res.json({error: 'Error'});
-                                });
-                        })
-                        .on('error', function(e) {
-                            res.status(500);
-                        });
-            }
-        );
-    });
+router.post('/', function(req, res, next) {
+    findTexts(req.body.sketch_url)
+        .then(Texts => {
+            res.json(Texts);
+        })
+        .catch(function (err) {
+            console.error(err);
+            res.json({error: 'Error'});
+        });
 });
 
 module.exports = router;

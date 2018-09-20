@@ -4,6 +4,7 @@ const
     childProcess = require('child_process'),
     xmlDom = require('xmldom'),
     shellEscape = require('shell-escape'),
+    url = require('url'),
     fsUtils = require('../src/fs-utils');
 
 class SketchTexts {
@@ -37,6 +38,14 @@ class SketchTexts {
 }
 
 class SketchStore {
+    /**
+     * @param {string} url
+     * @return {string}
+     */
+    url2fileName(url) {
+        return url.replace(/\//g, '_');
+    }
+
     /**
      * @private
      * @param {string} attributesArchive
@@ -246,6 +255,51 @@ class SketchStore {
                     reject();
                 }
             });
+        });
+    }
+
+    /**
+     * @param {string} sketch_url
+     * @return {Promise<string>}
+     */
+    load(sketch_url)
+    {
+        return new Promise(resolve => {
+            let fileName = this.url2fileName(sketch_url);
+
+            this.has(fileName)
+                .then(
+                    () => {
+                        resolve(fileName);
+                    },
+                    () => {
+                        let adapters = {
+                            'http:' : require('http'),
+                            'https:': require('https'),
+                        };
+
+                        adapters[url.parse(sketch_url).protocol].get(sketch_url,  response => {
+                            let uploadPath = global.appConfig.tmpDir + fileName;
+                            let file = fs.createWriteStream(uploadPath);
+
+                            response.pipe(file)
+                                .on('finish', () => {
+                                    this.addSketchFile(uploadPath, fileName)
+                                        .then(
+                                            function() {
+                                                if(fs.existsSync(uploadPath)) {
+                                                    fs.unlinkSync(uploadPath);
+                                                }
+                                                resolve(fileName);
+                                            }
+                                        )
+                                })
+                                .on('error', function(e) {
+                                    throw new Error('can\'t load the sketch');
+                                });
+                        });
+                    }
+                )
         });
     }
 
