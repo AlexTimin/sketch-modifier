@@ -342,6 +342,7 @@ class SketchStore {
                         return promisifiedCalls;
                     })
                         .then(function () {
+                            //TODO::не используется, удалить, проверить
                             pages.forEach(function (Page) {
                                 _this.mapTexts(
                                     Page,
