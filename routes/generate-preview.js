@@ -20,21 +20,11 @@ function generatePreview(sketch_url, screens, replaces) {
 
     return SStore.load(sketch_url)
         .then(fileName => {
-            let screenPreviewUrls = Object.create(null);
-
-            let previewGenPromises = screens.map(screen_uuid => {
-                return SStore
-                    .tempReplaceTextsInSketch(fileName, replaces, function (sketchFilePath) {
-                        return new PreviewGenerator()
-                            .generatePreview(sketchFilePath, screen_uuid)
-                    })
-                    .then(function (imageUrls) {
-                        Object.assign(screenPreviewUrls, imageUrls);
-                    });
-            });
-
-            return Promise.all(previewGenPromises)
-                .then(() => Promise.resolve(screenPreviewUrls));
+            return SStore
+                .tempReplaceTextsInSketch(fileName, replaces, function (sketchFilePath) {
+                    return new PreviewGenerator()
+                        .generatePreview(sketchFilePath, screens)
+                })
         });
 }
 
@@ -51,13 +41,17 @@ function controller(reqParams, res)
         if (!reqParams.screens) {
             throw 'Screens ids missed';
         }
-        if (!reqParams.textReplaces) {
-            throw 'Text replaces missed';
-        }
+
         sketch_url = reqParams.sketch_url;
         screens = JSON.parse(reqParams.screens);
-        replaces = JSON.parse(reqParams.textReplaces);
+        if (!(screens instanceof Array)) {
+            screens = Object.values(screens);
+        }
+        if (reqParams.textReplaces) {
+            replaces = JSON.parse(reqParams.textReplaces);
+        }
     } catch (err) {
+        console.log(err);
         res.json({error: err});
         return;
     }

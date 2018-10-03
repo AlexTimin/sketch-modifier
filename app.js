@@ -9,6 +9,17 @@ let findTexts = require('./routes/find-texts');
 let index = require('./routes/index');
 let app = express();
 
+
+if (Object.values === undefined) {
+    Object.values = (obj) => {
+        let values = [];
+        for (let field in obj) {
+            values.push(obj[field]);
+        }
+        return values;
+    }
+}
+
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = 0;//skip TLS cert verification
 
 // view engine setup

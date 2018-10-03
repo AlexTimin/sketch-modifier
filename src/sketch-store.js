@@ -4,12 +4,11 @@ const
     childProcess = require('child_process'),
     xmlDom = require('xmldom'),
     shellEscape = require('shell-escape'),
-    url = require('url'),
-    fsUtils = require('../src/fs-utils');
+    fsUtils = require('../src/fs-utils'),
+    request = require('request');
 
 class SketchTexts {
-    constructor(sketchUuid) {
-        this.sketchUuid = sketchUuid;
+    constructor() {
         this._Index = Object.create(null);
     }
 
@@ -31,9 +30,7 @@ class SketchTexts {
      * @return {Object}
      */
     toJSON() {
-        let JSONable = {};
-        JSONable[this.sketchUuid] = this._Index;
-        return JSONable;
+        return this._Index;
     };
 }
 
@@ -258,13 +255,9 @@ class SketchStore {
         });
     }
 
-    /**
-     * @param {string} sketch_url
-     * @return {Promise<string>}
-     */
-    load(sketch_url)
+    async load(sketch_url)
     {
-        return new Promise(resolve => {
+        return new Promise((resolve, reject) => {
             let fileName = this.url2fileName(sketch_url);
 
             this.has(fileName)
@@ -273,31 +266,30 @@ class SketchStore {
                         resolve(fileName);
                     },
                     () => {
-                        let adapters = {
-                            'http:' : require('http'),
-                            'https:': require('https'),
-                        };
-
-                        adapters[url.parse(sketch_url).protocol].get(sketch_url,  response => {
-                            let uploadPath = global.appConfig.tmpDir + fileName;
-                            let file = fs.createWriteStream(uploadPath);
-
-                            response.pipe(file)
-                                .on('finish', () => {
-                                    this.addSketchFile(uploadPath, fileName)
-                                        .then(
-                                            function() {
-                                                if(fs.existsSync(uploadPath)) {
-                                                    fs.unlinkSync(uploadPath);
+                        console.log('loading ' + sketch_url);
+                        request(sketch_url)
+                            .on('response', response => {
+                                let uploadPath = global.appConfig.tmpDir + fileName;
+                                let file = fs.createWriteStream(uploadPath);
+                                response.pipe(file)
+                                    .on('close', () => {
+                                        this.addSketchFile(uploadPath, fileName)
+                                            .then(
+                                                function () {
+                                                    if (fs.existsSync(uploadPath)) {
+                                                        fs.unlinkSync(uploadPath);
+                                                    }
+                                                    resolve(fileName);
                                                 }
-                                                resolve(fileName);
-                                            }
-                                        )
-                                })
-                                .on('error', function(e) {
-                                    throw new Error('can\'t load the sketch');
-                                });
-                        });
+                                            );
+                                    })
+                                    .on('error', function (e) {
+                                        throw new Error(e);
+                                    });
+                            })
+                            .on('error', function (e) {
+                                throw new Error(e);
+                            });
                     }
                 )
         });
@@ -384,6 +376,10 @@ class SketchStore {
 
             fsUtils.copyDirRecursive(srcSketchDir, translatedSketchDir)
                 .then(function () {
+                    if (!replaces) {
+                        return Promise.resolve();
+                    }
+
                     return _this.mapSketchPages(translatedSketchDir, function(Page) {
                         _this.mapTexts(
                             Page,
