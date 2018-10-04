@@ -43,7 +43,7 @@ class PreviewGenerator {
             outputDirPath = shellEscape([outputDirPath]);
             screens = shellEscape([screens.join(',')]);
 
-            const generatePreviewCmd = `cd ${outputDirPath} && sketchtool export artboards --items=${screens} --formats=${global.appConfig.exportFormat} --save-for-web ${sketchFilePath}`;
+            const generatePreviewCmd = `cd ${outputDirPath} && /Applications/Sketch.app/Contents/Resources/sketchtool/bin/sketchtool export artboards --items=${screens} --formats=${global.appConfig.exportFormat} --save-for-web ${sketchFilePath}`;
 
             childProcess.exec(generatePreviewCmd, function (error, stdout, stderr) {
                 if (error) {

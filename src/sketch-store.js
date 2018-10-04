@@ -138,7 +138,7 @@ class SketchStore {
             breadcrumbs.push(obj.do_objectID);
         }
 
-        if (obj.attributedString) {
+        if (breadcrumbs.length >= 3 && obj.attributedString) { //length must be greater or equal to 3, bcoz 1-page, 2-artboard, 3-text
             if (obj.attributedString.archivedAttributedString) {
                 let Attributes = new xmlDom.DOMParser().parseFromString(
                     obj.attributedString.archivedAttributedString._archive,
@@ -376,23 +376,21 @@ class SketchStore {
 
             fsUtils.copyDirRecursive(srcSketchDir, translatedSketchDir)
                 .then(function () {
-                    if (!replaces) {
-                        return Promise.resolve();
-                    }
-
                     return _this.mapSketchPages(translatedSketchDir, function(Page) {
-                        _this.mapTexts(
-                            Page,
-                            function (breadcrumbs, text) {
-                                let textUuid = breadcrumbs[breadcrumbs.length - 1];
+                        if (replaces) {
+                            _this.mapTexts(
+                                Page,
+                                function (breadcrumbs, text) {
+                                    let textUuid = breadcrumbs[breadcrumbs.length - 1];
 
-                                if (replaces[textUuid]) {
-                                    return replaces[textUuid];
+                                    if (replaces[textUuid]) {
+                                        return replaces[textUuid];
+                                    }
+
+                                    return text;
                                 }
-
-                                return text;
-                            }
-                        );
+                            );
+                        }
                         let promisifiedCalls = [];
                         let archives = _this._findArchivedAttributes(Page);
                         if (archives.length) {
