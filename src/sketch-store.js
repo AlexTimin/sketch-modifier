@@ -193,11 +193,7 @@ class SketchStore {
 
                     pages[pageFilePath] = Page;
 
-                    try {
-                        promisifiedCalls = promisifiedCalls.concat(mapCallback(Page));
-                    } catch (error) {
-                        reject(error);
-                    }
+                    promisifiedCalls = promisifiedCalls.concat(mapCallback(Page));
                 });
 
                 if (promisifiedCalls.length === 0) {
@@ -220,13 +216,11 @@ class SketchStore {
 
                 execMapping(0, global.appConfig.maxParallelMappingThreads)
                     .then(function () {
-                        let promises = [];
                         for (let pageFilePath in pages) {
-                            promises.push(fsUtils.writeFile(pageFilePath, JSON.stringify(pages[pageFilePath])));
+                            fs.writeFileSync(pageFilePath, JSON.stringify(pages[pageFilePath]));
                         }
-                        return Promise.all(promises);
-                    })
-                    .then(resolve, reject);
+                        resolve();
+                    });
             });
         });
     }
@@ -284,11 +278,13 @@ class SketchStore {
                                             );
                                     })
                                     .on('error', function (e) {
-                                        throw new Error(e);
+                                        console.log(JSON.stringify());
+                                        reject(e);
                                     });
                             })
                             .on('error', function (e) {
-                                throw new Error(e);
+                                console.log(JSON.stringify());
+                                reject(e);
                             });
                     }
                 )

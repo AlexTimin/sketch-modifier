@@ -63,23 +63,6 @@ module.exports = {
     },
 
     /**
-     * @param {string} filePath
-     * @param {string} data
-     * @return {Promise}
-     */
-    writeFile: function (filePath, data) {
-        return new Promise(function (resolve, reject) {
-            fs.writeFile(filePath, data, function (err) {
-                if (err) {
-                    reject(err);
-                    return;
-                }
-
-                resolve();
-            });})
-    },
-
-    /**
      * @param {string} projectFilePath
      * @param {string} unzippedProjectPath
      * @return {Promise}
